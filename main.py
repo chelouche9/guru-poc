@@ -3,6 +3,7 @@ from browser_use import Agent, ChatOpenAI
 from browser_use.browser.session import BrowserSession
 from dotenv import load_dotenv
 import asyncio
+import os
 
 load_dotenv()
 
@@ -44,10 +45,21 @@ async def run_agent(user_question):
     task = CONTEXT + user_question
     llm = ChatOpenAI(model="gpt-4.1-mini")
     
-    # Configure browser session to run in headless mode
-    browser = BrowserSession(headless=True)
+    # Check if we should use cloud browser (for Streamlit Cloud deployment)
+    # Cloud browser requires BROWSERBASE_API_KEY and BROWSERBASE_PROJECT_ID env vars
+    use_cloud_browser = os.getenv('USE_CLOUD_BROWSER', 'false').lower() == 'true'
     
-    # Create agent with headless browser
+    if use_cloud_browser:
+        # Configure browser session to use cloud browser (Browserbase)
+        browser = BrowserSession(
+            headless=True,
+            use_cloud=True
+        )
+    else:
+        # Use local browser (for local development)
+        browser = BrowserSession(headless=True)
+    
+    # Create agent with configured browser
     agent = Agent(task=task, llm=llm, browser=browser)
     result = await agent.run()
     return result
