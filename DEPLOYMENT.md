@@ -22,9 +22,23 @@ Or with system dependencies:
 playwright install chrome --with-deps
 ```
 
-### 3. Set Up Environment Variables
+### 3. Set Up Secrets
 
-Create a `.env` file in the project root with:
+**Option A: Using Streamlit Secrets (Recommended)**
+
+Create `.streamlit/secrets.toml` in the project root:
+
+```toml
+# OpenAI API Key (Required)
+OPENAI_API_KEY = "your_openai_api_key_here"
+
+# Local browser will be used automatically (default)
+# USE_CLOUD_BROWSER = "false"
+```
+
+**Option B: Using Environment Variables**
+
+Create a `.env` file in the project root:
 
 ```env
 # OpenAI API Key (Required)
@@ -33,6 +47,8 @@ OPENAI_API_KEY=your_openai_api_key_here
 # Local browser will be used automatically (default)
 # USE_CLOUD_BROWSER=false
 ```
+
+The app checks `st.secrets` first, then falls back to environment variables.
 
 ### 4. Run the App
 

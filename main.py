@@ -5,7 +5,20 @@ from dotenv import load_dotenv
 import asyncio
 import os
 
+# Load environment variables (for local development with .env file)
 load_dotenv()
+
+def get_config(key: str, default: str = "") -> str:
+    """
+    Get configuration value from Streamlit secrets first, then fall back to environment variables.
+    This allows the app to work both locally (with .env) and on Streamlit Cloud (with secrets.toml).
+    """
+    # Try Streamlit secrets first (for Streamlit Cloud and local secrets.toml)
+    try:
+        return st.secrets.get(key, os.getenv(key, default))
+    except (AttributeError, FileNotFoundError):
+        # Fall back to environment variables (for local .env file)
+        return os.getenv(key, default)
 
 # Context that will be prepended to user queries
 CONTEXT = """
@@ -43,21 +56,29 @@ YOUR TASK:
 async def run_agent(user_question):
     """Run the agent with the user's question in headless mode"""
     task = CONTEXT + user_question
+    
+    # Get OpenAI API key from secrets/env
+    openai_api_key = get_config('OPENAI_API_KEY')
+    if not openai_api_key:
+        raise ValueError(
+            "OpenAI API key is missing. Please set OPENAI_API_KEY in your secrets.toml or .env file."
+        )
+    
     llm = ChatOpenAI(model="gpt-4.1-mini")
     
     # Check if we should use cloud browser (for Streamlit Cloud deployment)
-    # Cloud browser requires BROWSERBASE_API_KEY and BROWSERBASE_PROJECT_ID env vars
-    use_cloud_browser = os.getenv('USE_CLOUD_BROWSER', 'false').lower() == 'true'
+    # Cloud browser requires BROWSERBASE_API_KEY and BROWSERBASE_PROJECT_ID
+    use_cloud_browser = get_config('USE_CLOUD_BROWSER', 'false').lower() == 'true'
     
     if use_cloud_browser:
         # Validate Browserbase credentials
-        browserbase_api_key = os.getenv('BROWSERBASE_API_KEY')
-        browserbase_project_id = os.getenv('BROWSERBASE_PROJECT_ID')
+        browserbase_api_key = get_config('BROWSERBASE_API_KEY')
+        browserbase_project_id = get_config('BROWSERBASE_PROJECT_ID')
         
         if not browserbase_api_key or not browserbase_project_id:
             raise ValueError(
                 "Cloud browser mode is enabled but Browserbase credentials are missing. "
-                "Please set BROWSERBASE_API_KEY and BROWSERBASE_PROJECT_ID environment variables. "
+                "Please set BROWSERBASE_API_KEY and BROWSERBASE_PROJECT_ID in your Streamlit secrets. "
                 "Get your credentials at https://www.browserbase.com/"
             )
         
@@ -124,21 +145,28 @@ def main():
                     st.session_state.response = (
                         "❌ Browser Setup Error:\n\n"
                         "The local browser installation failed. This usually happens when:\n\n"
-                        "1. **For Local Development**: Install Playwright browsers with:\n"
-                        "   ```bash\n"
-                        "   playwright install chrome\n"
-                        "   ```\n\n"
-                        "2. **For Streamlit Cloud**: Set `USE_CLOUD_BROWSER=true` and add your Browserbase credentials:\n"
-                        "   - BROWSERBASE_API_KEY\n"
-                        "   - BROWSERBASE_PROJECT_ID\n\n"
-                        "Get credentials at: https://www.browserbase.com/"
+                        "**1. For Local Development:**\n"
+                        "   - Install Playwright browsers: `playwright install chrome`\n"
+                        "   - Add credentials to `.streamlit/secrets.toml` or `.env` file\n\n"
+                        "**2. For Streamlit Cloud:**\n"
+                        "   - Go to App Settings → Secrets\n"
+                        "   - Add: `USE_CLOUD_BROWSER = \"true\"`\n"
+                        "   - Add: `BROWSERBASE_API_KEY = \"your_key\"`\n"
+                        "   - Add: `BROWSERBASE_PROJECT_ID = \"your_id\"`\n\n"
+                        "Get Browserbase credentials at: https://www.browserbase.com/"
                     )
                 else:
                     st.session_state.response = f"❌ Error: {error_msg}"
                 st.session_state.processing = False
             except Exception as e:
                 # General errors
-                st.session_state.response = f"❌ Error: {str(e)}\n\nIf you're on Streamlit Cloud, make sure USE_CLOUD_BROWSER=true and Browserbase credentials are set."
+                st.session_state.response = (
+                    f"❌ Error: {str(e)}\n\n"
+                    "**Troubleshooting:**\n"
+                    "- Check that all required secrets are set in `.streamlit/secrets.toml` or App Settings → Secrets\n"
+                    "- For Streamlit Cloud: Ensure `USE_CLOUD_BROWSER=\"true\"` and Browserbase credentials are configured\n"
+                    "- For local dev: Run `playwright install chrome`"
+                )
                 st.session_state.processing = False
     
     # Display response

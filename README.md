@@ -18,13 +18,25 @@ A Streamlit-powered web interface for querying information from Casino Guru usin
 pip install -r requirements.txt
 ```
 
-### 2. Set Up Environment Variables
+### 2. Set Up Secrets
 
-Create a `.env` file with your OpenAI API key:
+**Option A: Using Streamlit Secrets (Recommended)**
+
+Create `.streamlit/secrets.toml`:
+
+```toml
+OPENAI_API_KEY = "your_openai_api_key_here"
+```
+
+**Option B: Using Environment Variables**
+
+Create a `.env` file:
 
 ```env
 OPENAI_API_KEY=your_openai_api_key_here
 ```
+
+The app will automatically check secrets first, then fall back to environment variables.
 
 ### 3. Install Playwright Browsers (for local development)
 
