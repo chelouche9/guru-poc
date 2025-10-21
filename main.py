@@ -50,6 +50,17 @@ async def run_agent(user_question):
     use_cloud_browser = os.getenv('USE_CLOUD_BROWSER', 'false').lower() == 'true'
     
     if use_cloud_browser:
+        # Validate Browserbase credentials
+        browserbase_api_key = os.getenv('BROWSERBASE_API_KEY')
+        browserbase_project_id = os.getenv('BROWSERBASE_PROJECT_ID')
+        
+        if not browserbase_api_key or not browserbase_project_id:
+            raise ValueError(
+                "Cloud browser mode is enabled but Browserbase credentials are missing. "
+                "Please set BROWSERBASE_API_KEY and BROWSERBASE_PROJECT_ID environment variables. "
+                "Get your credentials at https://www.browserbase.com/"
+            )
+        
         # Configure browser session to use cloud browser (Browserbase)
         browser = BrowserSession(
             headless=True,
@@ -102,8 +113,32 @@ def main():
                 final_answer = result.final_result()
                 st.session_state.response = final_answer if final_answer else "✅ Task completed, but no final result was extracted."
                 st.session_state.processing = False
+            except ValueError as e:
+                # Configuration errors (like missing Browserbase credentials)
+                st.session_state.response = f"⚙️ Configuration Error:\n\n{str(e)}"
+                st.session_state.processing = False
+            except FileNotFoundError as e:
+                # Missing dependencies (like uvx or playwright)
+                error_msg = str(e)
+                if 'uvx' in error_msg:
+                    st.session_state.response = (
+                        "❌ Browser Setup Error:\n\n"
+                        "The local browser installation failed. This usually happens when:\n\n"
+                        "1. **For Local Development**: Install Playwright browsers with:\n"
+                        "   ```bash\n"
+                        "   playwright install chrome\n"
+                        "   ```\n\n"
+                        "2. **For Streamlit Cloud**: Set `USE_CLOUD_BROWSER=true` and add your Browserbase credentials:\n"
+                        "   - BROWSERBASE_API_KEY\n"
+                        "   - BROWSERBASE_PROJECT_ID\n\n"
+                        "Get credentials at: https://www.browserbase.com/"
+                    )
+                else:
+                    st.session_state.response = f"❌ Error: {error_msg}"
+                st.session_state.processing = False
             except Exception as e:
-                st.session_state.response = f"❌ Error: {str(e)}"
+                # General errors
+                st.session_state.response = f"❌ Error: {str(e)}\n\nIf you're on Streamlit Cloud, make sure USE_CLOUD_BROWSER=true and Browserbase credentials are set."
                 st.session_state.processing = False
     
     # Display response
